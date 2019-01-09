@@ -125,18 +125,13 @@ def normalize_gt(img: np.array) -> np.array:
 def add_border(img: np.array, size_x: int = 224, size_y: int = 224) -> (np.array, int, int):
     """Add border to image, so it will divide window sizes: size_x and size_y"""
     max_y, max_x = img.shape[:2]
-    print(str(max_y)+"&"+str(max_x))
     border_y = 0
     if max_y % size_y != 0:
-        print('1.'+str(size_y - (max_y % size_y)))
         border_y = (size_y - (max_y % size_y) + 1) // 2
-        print('border_y='+str(border_y))
         img = cv2.copyMakeBorder(img, border_y, border_y, 0, 0, cv2.BORDER_CONSTANT, value=[255, 255, 255])
     border_x = 0
     if max_x % size_x != 0:
-        print('2.'+str(size_x - (max_x % size_x)))
         border_x = (size_x - (max_x % size_x) + 1) // 2
-        print('border_x=' + str(border_x))
         img = cv2.copyMakeBorder(img, 0, 0, border_x, border_x, cv2.BORDER_CONSTANT, value=[255, 255, 255])
     return img, border_y, border_x
 
@@ -149,7 +144,6 @@ def split_img(img: np.array, size_x: int = 224, size_y: int = 224) -> [np.array]
 
     """
     max_y, max_x = img.shape[:2]
-    print('split'+str(max_y)+"^^"+str(max_x))
     parts = []
     curr_y = 0
     # TODO: rewrite with generators.
@@ -159,7 +153,6 @@ def split_img(img: np.array, size_x: int = 224, size_y: int = 224) -> [np.array]
             parts.append(img[curr_y:curr_y + size_y, curr_x:curr_x + size_x])
             curr_x += size_x
         curr_y += size_y
-    print(parts)
     return parts
 
 def combine_imgs(imgs: [np.array], max_y: int, max_x: int) -> np.array:
@@ -201,16 +194,11 @@ def preprocess_img(img: np.array) -> np.array:
 
 def process_unet_img(img: np.array, model, batchsize: int = 20) -> np.array:
     """Split image to 128x128 parts and run U-net for every part."""
-    print(img.shape)
     img, border_y, border_x = add_border(img)
-    print(img.shape)
-    print(border_y)
-    print(border_x)
     img = normalize_in(img)
     parts = split_img(img)
-    print(len(parts))
     parts = np.array(parts)
-    parts.shape = (parts.shape[0], parts.shape[1], parts.shape[2], 3)
+    parts.shape = (parts.shape[0], parts.shape[1], parts.shape[2], 1)
     parts = model.predict(parts, batchsize)
     tmp = []
     for part in parts:
@@ -226,7 +214,6 @@ def process_unet_img(img: np.array, model, batchsize: int = 20) -> np.array:
 def binarize_img(img: np.array, model, batchsize: int = 20) -> np.array:
     """Binarize image, using U-net, Otsu, bottom-hat transform etc."""
     img = preprocess_img(img)
-    print(img)
     img = process_unet_img(img, model, batchsize)
     img = postprocess_img(img)
     return img
@@ -243,9 +230,7 @@ def main():
         model.compile(loss='categorical_crossentropy',optimizer="adadelta",metrics=['acc'])
         model = load_model('output/segnet_model.h5')
     for fname in fnames_in:
-        print(fname)
         img = cv2.imread(fname, cv2.IMREAD_GRAYSCALE).astype(np.float32)
-        print(img.shape)
         img = binarize_img(img, model, 20)
         cv2.imwrite(os.path.join('result', os.path.split(fname)[-1].replace('_in', '_out')), img)
 
